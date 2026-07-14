@@ -1,4 +1,4 @@
-package mini_redis
+package main
 
 import "github.com/AnnaKhairetdinova/mini-redis/store"
 

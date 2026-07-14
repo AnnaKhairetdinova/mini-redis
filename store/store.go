@@ -29,13 +29,14 @@ func (s *Store) Set(key, value string, ttl time.Duration) {
 
 	if ttl > 0 {
 		expires = time.Now().Add(ttl)
+	} else if ttl < 0 {
+		expires = time.Now().Add(-1 * time.Nanosecond)
 	}
 
 	s.data[key] = entry{value, expires}
 }
 
 func (s *Store) Get(key string) (string, bool) {
-	//ключ существует? не протух? Если протух — вернуть ("", false)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -47,18 +48,16 @@ func (s *Store) Get(key string) (string, bool) {
 		return "", false
 	}
 
-	return key, true
+	return s.data[key].value, true
 }
 
 func (s *Store) Del(key string) bool {
 	s.mu.Lock()
-
+	defer s.mu.Unlock()
 	if _, ok := s.data[key]; ok {
 		delete(s.data, key)
 		return true
 	}
-
-	s.mu.Unlock()
 
 	return false
 }
@@ -68,8 +67,10 @@ func (s *Store) Keys() []string {
 	defer s.mu.RUnlock()
 
 	res := make([]string, 0, len(s.data))
-	for k := range s.data {
-		res = append(res, k)
+	for k, e := range s.data {
+		if e.expiresAt.IsZero() || !time.Now().After(e.expiresAt) {
+			res = append(res, k)
+		}
 	}
 
 	return res
