@@ -7,22 +7,25 @@ import (
 	"time"
 )
 
-var CommandName string
+type CommandName string
 
 const (
-	SET  = "SET"
-	GET  = "GET"
-	DEL  = "DEL"
-	KEYS = "KEYS"
-	PING = "PING"
+	SET  CommandName = "SET"
+	GET  CommandName = "GET"
+	DEL  CommandName = "DEL"
+	KEYS CommandName = "KEYS"
+	PING CommandName = "PING"
 )
 
+func (c CommandName) String() string {
+	return string(c)
+}
+
 type Command struct {
-	Name        string
-	CommandName string
-	Key         string
-	Value       string
-	TTL         time.Duration
+	Name  CommandName
+	Key   string
+	Value string
+	TTL   time.Duration
 }
 
 func Parse(line string) (*Command, error) {
@@ -31,11 +34,9 @@ func Parse(line string) (*Command, error) {
 		return nil, errors.New("empty command")
 	}
 
-	name := lineSplit[0]
-	CommandName = name // что за глобальная переменная CommandName ?
-	key := ""
-	value := ""
-	ttl := time.Duration(0)
+	name := CommandName(lineSplit[0])
+	var key, value string
+	var ttl time.Duration
 
 	switch name {
 	case SET:
@@ -57,19 +58,18 @@ func Parse(line string) (*Command, error) {
 		}
 	case GET, DEL:
 		if len(lineSplit) < 2 {
-			return nil, errors.New(name + " requires a key")
+			return nil, errors.New(name.String() + " requires a key")
 		}
 
 		key = lineSplit[1]
 	case KEYS, PING:
 		// без аргументов
 	default:
-		return nil, errors.New("unknown command" + name)
+		return nil, errors.New("unknown command " + name.String())
 	}
 
 	com := &Command{
 		name,
-		CommandName,
 		key,
 		value,
 		ttl * time.Second,
