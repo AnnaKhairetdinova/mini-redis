@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/AnnaKhairetdinova/mini-redis/server"
 	"github.com/AnnaKhairetdinova/mini-redis/store"
@@ -24,5 +27,8 @@ func main() {
 		fmt.Println(err)
 	}
 
-	log.Printf("новый клиент")
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	s.StartCleaner(ctx, 1*time.Second)
 }

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -74,4 +75,28 @@ func (s *Store) Keys() []string {
 	}
 
 	return res
+}
+
+func (s *Store) StartCleaner(ctx context.Context, interval time.Duration) {
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				s.mu.Lock()
+
+				for key, val := range s.data {
+					if !val.expiresAt.IsZero() && time.Now().After(val.expiresAt) {
+						delete(s.data, key)
+					}
+				}
+				s.mu.Unlock()
+
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 }
