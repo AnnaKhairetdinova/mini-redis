@@ -14,17 +14,23 @@ import (
 func Handle(conn net.Conn, s *store.Store) {
 	defer conn.Close()
 
+	s.Clients.Add(1)
+	defer s.Clients.Add(-1)
+
 	scanner := bufio.NewScanner(conn)
-	if scanner.Scan() {
+	for scanner.Scan() {
 		line := scanner.Text()
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
 		cmd, err := parser.Parse(line)
 		if err != nil {
 			fmt.Fprintf(os.Stdout, "ERR: %s", err)
-			return
+			continue
 		}
 
 		result := execute(cmd, s)
-
 		fmt.Fprintln(conn, result)
 	}
 }
@@ -58,7 +64,14 @@ func execute(cmd *parser.Command, s *store.Store) string {
 
 	case parser.PING:
 		return "PONG"
-	}
 
-	return "ERR"
+	case parser.INFO:
+		keys := len(s.Keys())
+		clients := s.Clients.Load()
+
+		return fmt.Sprintf("keys:%d \nclients: %d", keys, clients)
+
+	default:
+		return "ERR"
+	}
 }

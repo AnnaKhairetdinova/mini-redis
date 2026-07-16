@@ -1,28 +1,43 @@
 package server
 
 import (
+	"context"
 	"net"
+	"sync"
 
 	"github.com/AnnaKhairetdinova/mini-redis/handler"
 	"github.com/AnnaKhairetdinova/mini-redis/store"
 )
 
-func Start(port string, s *store.Store) error {
+func Start(ctx context.Context, port string, s *store.Store) error {
 	ln, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		return err
 	}
 
-	defer ln.Close()
+	go func() {
+		<-ctx.Done()
+		ln.Close()
+	}()
+
+	var wg sync.WaitGroup
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			continue
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				continue
+			}
 		}
 
-		go handler.Handle(conn, s)
-	}
+		wg.Add(1)
 
-	return nil
+		go func() {
+			defer wg.Done()
+			handler.Handle(conn, s)
+		}()
+	}
 }

@@ -1,145 +1,97 @@
 package store
 
 import (
+	"context"
 	"testing"
 	"time"
 )
 
-func TestSetGet(t *testing.T) {
-	tests := []struct {
-		name     string
-		key      string
-		value    string
-		ttl      time.Duration
-		expected string
-		wantOk   bool
-	}{
-		{
-			name:     "simple set and get",
-			key:      "key1",
-			value:    "hello",
-			ttl:      0,
-			expected: "hello",
-			wantOk:   true,
-		},
-		{
-			name:     "expired key",
-			key:      "key2",
-			value:    "world",
-			ttl:      -1 * time.Second,
-			expected: "",
-			wantOk:   false,
-		},
+func TestSet_Get(t *testing.T) {
+	s := New()
+	s.Set("name", "Alice", 0)
+
+	val, ok := s.Get("name")
+	if !ok {
+		t.Fatal("ожидали ok=true, получили false")
+	}
+	if val != "Alice" {
+		t.Errorf("ожидали Alice, получили %s", val)
+	}
+}
+
+func TestGet_NotFound(t *testing.T) {
+	s := New()
+
+	_, ok := s.Get("несуществующий")
+	if ok {
+		t.Fatal("ожидали ok=false, получили true")
+	}
+}
+
+func TestSet_TTL_Expired(t *testing.T) {
+	s := New()
+	s.Set("token", "abc123", 50*time.Millisecond)
+
+	_, ok := s.Get("token")
+	if !ok {
+		t.Fatal("ключ должен быть доступен сразу после Set")
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := New()
-			st.Set(tt.key, tt.value, tt.ttl)
-			got, ok := st.Get(tt.key)
+	time.Sleep(100 * time.Millisecond)
 
-			if ok != tt.wantOk {
-				t.Errorf("Get() ok = %v, want %v", ok, tt.wantOk)
-			}
-
-			if got != tt.expected {
-				t.Errorf("Get() = %v, want %v", got, tt.expected)
-			}
-		})
+	_, ok = s.Get("token")
+	if ok {
+		t.Fatal("ключ должен быть недоступен после истечения TTL")
 	}
 }
 
 func TestDel(t *testing.T) {
-	tests := []struct {
-		name      string
-		setup     func(st *Store)
-		key       string
-		wantDel   bool
-		wantGetOk bool
-	}{
-		{
-			name: "delete existing key",
-			setup: func(st *Store) {
-				st.Set("a", "1", 0)
-			},
-			key:       "a",
-			wantDel:   true,
-			wantGetOk: false,
-		},
-		{
-			name: "delete non-existing key",
-			setup: func(st *Store) {
-				st.Set("a", "1", 0)
-			},
-			key:       "b",
-			wantDel:   false,
-			wantGetOk: false,
-		},
+	s := New()
+	s.Set("key", "value", 0)
+
+	existed := s.Del("key")
+	if !existed {
+		t.Error("Del должен вернуть true для существующего ключа")
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := New()
-			tt.setup(st)
-			got := st.Del(tt.key)
-			if got != tt.wantDel {
-				t.Errorf("Del() = %v, want %v", got, tt.wantDel)
-			}
-			_, ok := st.Get(tt.key)
-			if ok != tt.wantGetOk {
-				t.Errorf("Get() after Del ok = %v, want %v", ok, tt.wantGetOk)
-			}
-		})
+
+	_, ok := s.Get("key")
+	if ok {
+		t.Error("ключ должен быть удалён")
+	}
+
+	existed = s.Del("key")
+	if existed {
+		t.Error("Del должен вернуть false для несуществующего ключа")
 	}
 }
 
 func TestKeys(t *testing.T) {
-	tests := []struct {
-		name     string
-		setup    func(st *Store)
-		expected []string
-	}{
-		{
-			name: "only alive keys",
-			setup: func(st *Store) {
-				st.Set("a", "1", 0)              // бессрочно
-				st.Set("b", "2", 10*time.Second) // ещё не истекло
-				st.Set("c", "3", -1*time.Second) // уже истекло
-			},
-			expected: []string{"a", "b"},
-		},
-		{
-			name: "all keys expired",
-			setup: func(st *Store) {
-				st.Set("a", "1", -1*time.Hour)
-				st.Set("b", "2", -1*time.Minute)
-			},
-			expected: []string{},
-		},
-		{
-			name:     "empty store",
-			setup:    func(st *Store) {},
-			expected: []string{},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := New()
-			tt.setup(st)
-			keys := st.Keys()
-			if len(keys) != len(tt.expected) {
-				t.Errorf("Keys() len = %d, want %d, got %v", len(keys), len(tt.expected), keys)
-				return
-			}
+	s := New()
+	s.Set("a", "1", 0)
+	s.Set("b", "2", 0)
+	s.Set("c", "3", 50*time.Millisecond) // протухнет
 
-			keySet := make(map[string]bool)
-			for _, k := range keys {
-				keySet[k] = true
-			}
-			for _, k := range tt.expected {
-				if !keySet[k] {
-					t.Errorf("Keys() missing expected key: %s, got %v", k, keys)
-				}
-			}
-		})
+	time.Sleep(100 * time.Millisecond)
+
+	keys := s.Keys()
+
+	if len(keys) != 2 {
+		t.Errorf("ожидали 2 ключа, получили %d: %v", len(keys), keys)
+	}
+}
+
+func TestCleaner(t *testing.T) {
+	s := New()
+	s.Set("temp", "value", 50*time.Millisecond)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.StartCleaner(ctx, 30*time.Millisecond)
+
+	time.Sleep(150 * time.Millisecond)
+
+	_, ok := s.Get("temp")
+	if ok {
+		t.Error("ключ должен быть удалён очистителем")
 	}
 }

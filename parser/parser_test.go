@@ -16,11 +16,10 @@ func TestParse(t *testing.T) {
 			name:  "SET without TTL",
 			input: "SET key1 value1",
 			want: &Command{
-				Name:        SET,
-				CommandName: SET,
-				Key:         "key1",
-				Value:       "value1",
-				TTL:         0,
+				Name:  SET,
+				Key:   "key1",
+				Value: "value1",
+				TTL:   0,
 			},
 			wantErr: false,
 		},
@@ -28,11 +27,10 @@ func TestParse(t *testing.T) {
 			name:  "SET with TTL",
 			input: "SET key1 value1 EX 10",
 			want: &Command{
-				Name:        SET,
-				CommandName: SET,
-				Key:         "key1",
-				Value:       "value1",
-				TTL:         10 * time.Second,
+				Name:  SET,
+				Key:   "key1",
+				Value: "value1",
+				TTL:   10 * time.Second,
 			},
 			wantErr: false,
 		},
@@ -40,11 +38,10 @@ func TestParse(t *testing.T) {
 			name:  "GET existing key",
 			input: "GET mykey",
 			want: &Command{
-				Name:        GET,
-				CommandName: GET,
-				Key:         "mykey",
-				Value:       "",
-				TTL:         0,
+				Name:  GET,
+				Key:   "mykey",
+				Value: "",
+				TTL:   0,
 			},
 			wantErr: false,
 		},
@@ -52,11 +49,10 @@ func TestParse(t *testing.T) {
 			name:  "DEL existing key",
 			input: "DEL mykey",
 			want: &Command{
-				Name:        DEL,
-				CommandName: DEL,
-				Key:         "mykey",
-				Value:       "",
-				TTL:         0,
+				Name:  DEL,
+				Key:   "mykey",
+				Value: "",
+				TTL:   0,
 			},
 			wantErr: false,
 		},
@@ -64,11 +60,10 @@ func TestParse(t *testing.T) {
 			name:  "KEYS command",
 			input: "KEYS",
 			want: &Command{
-				Name:        KEYS,
-				CommandName: KEYS,
-				Key:         "",
-				Value:       "",
-				TTL:         0,
+				Name:  KEYS,
+				Key:   "",
+				Value: "",
+				TTL:   0,
 			},
 			wantErr: false,
 		},
@@ -76,11 +71,10 @@ func TestParse(t *testing.T) {
 			name:  "PING command",
 			input: "PING",
 			want: &Command{
-				Name:        PING,
-				CommandName: PING,
-				Key:         "",
-				Value:       "",
-				TTL:         0,
+				Name:  PING,
+				Key:   "",
+				Value: "",
+				TTL:   0,
 			},
 			wantErr: false,
 		},
@@ -144,10 +138,6 @@ func TestParse(t *testing.T) {
 
 				if got.Name != tt.want.Name {
 					t.Errorf("Parse().Name = %q, want %q", got.Name, tt.want.Name)
-				}
-
-				if got.CommandName != tt.want.CommandName {
-					t.Errorf("Parse().CommandName = %q, want %q", got.CommandName, tt.want.CommandName)
 				}
 
 				if got.Key != tt.want.Key {

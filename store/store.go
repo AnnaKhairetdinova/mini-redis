@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -12,18 +13,18 @@ type entry struct {
 }
 
 type Store struct {
-	mu   sync.RWMutex
-	data map[string]entry
+	mu      sync.RWMutex
+	data    map[string]entry
+	Clients atomic.Int64
 }
 
 func New() *Store {
 	return &Store{
-		sync.RWMutex{},
-		make(map[string]entry),
+		data: make(map[string]entry),
 	}
 }
 
-func (s *Store) Set(key, value string, ttl time.Duration) {
+func (s *Store) Set(key string, value string, ttl time.Duration) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	var expires time.Time
@@ -69,7 +70,7 @@ func (s *Store) Keys() []string {
 
 	res := make([]string, 0, len(s.data))
 	for k, e := range s.data {
-		if e.expiresAt.IsZero() || !time.Now().After(e.expiresAt) {
+		if e.expiresAt.IsZero() || time.Now().Before(e.expiresAt) {
 			res = append(res, k)
 		}
 	}

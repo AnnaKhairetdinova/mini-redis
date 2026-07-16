@@ -22,13 +22,14 @@ func main() {
 	}
 
 	s := store.New()
-	err := server.Start(*port, s)
-	if err != nil {
-		fmt.Println(err)
-	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	s.StartCleaner(ctx, 1*time.Second)
+	s.StartCleaner(ctx, 60*time.Second)
+
+	err := server.Start(ctx, *port, s)
+	if err != nil {
+		fmt.Println(err)
+	}
 }

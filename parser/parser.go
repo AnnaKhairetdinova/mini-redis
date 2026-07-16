@@ -15,6 +15,7 @@ const (
 	DEL  CommandName = "DEL"
 	KEYS CommandName = "KEYS"
 	PING CommandName = "PING"
+	INFO CommandName = "INFO"
 )
 
 func (c CommandName) String() string {
@@ -34,7 +35,7 @@ func Parse(line string) (*Command, error) {
 		return nil, errors.New("empty command")
 	}
 
-	name := CommandName(lineSplit[0])
+	name := CommandName(strings.ToUpper(lineSplit[0]))
 	var key, value string
 	var ttl time.Duration
 
@@ -50,11 +51,11 @@ func Parse(line string) (*Command, error) {
 		if len(lineSplit) >= 5 && lineSplit[3] == "EX" {
 			i, err := strconv.Atoi(lineSplit[4])
 
-			if err != nil {
+			if err != nil || i <= 0 {
 				return nil, err
 			}
 
-			ttl = time.Duration(i)
+			ttl = time.Duration(i) * time.Second
 		}
 	case GET, DEL:
 		if len(lineSplit) < 2 {
@@ -62,7 +63,7 @@ func Parse(line string) (*Command, error) {
 		}
 
 		key = lineSplit[1]
-	case KEYS, PING:
+	case KEYS, PING, INFO:
 		// без аргументов
 	default:
 		return nil, errors.New("unknown command " + name.String())
